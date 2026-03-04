@@ -313,10 +313,11 @@ void autosteerLoop()
            steerAngleSetPoint = maxSteerAngle;                                     // Если значение больше максимального, устанавливаем максимальный угол
       } else if (remoteControlValue >= 1400 && remoteControlValue <= 1600) {
            steerAngleSetPoint = 0.0;                                               // Если значение в диапазоне от 1400 до 1600, устанавливаем угол в 0
-     } else {
-                                                                                   // Линейная интерполяция для преобразования значения джойстика в угол
-           steerAngleSetPoint = map(remoteControlValue, minJoystickValue, maxJoystickValue, minSteerAngle, maxSteerAngle);
-   }
+      } else {
+                                                                                   // Линейная интерполяция с float без квантования в целые градусы
+           float t = (float)(remoteControlValue - minJoystickValue) / (float)(maxJoystickValue - minJoystickValue);
+           steerAngleSetPoint = minSteerAngle + t * (maxSteerAngle - minSteerAngle);
+    }
    }                                        
 
     if (steerConfig.ShaftEncoder && pulseCount >= steerConfig.PulseCountMax)

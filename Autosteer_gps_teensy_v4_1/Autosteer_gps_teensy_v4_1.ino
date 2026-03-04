@@ -647,6 +647,10 @@ void loop()
       readBNO();
     }
     
+    // Refresh CRSF channels before steering loop to avoid one-cycle stale values.
+    crsf.update();
+    channel9Value = crsf.getChannel(9);
+
     if (Autosteer_running) autosteerLoop();
     else ReceiveUdp();
     
@@ -660,8 +664,6 @@ void loop()
     digitalWrite(Power_on_LED, 0);
     digitalWrite(Ethernet_Active_LED, 1);
   }
-  crsf.update();                                                                  // Обновление данных CRSF
-  channel9Value = crsf.getChannel(9);                                             // обновление значения на канале 9
 }//End Loop
 //**************************************************************************
 
