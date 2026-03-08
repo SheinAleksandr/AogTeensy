@@ -647,10 +647,8 @@ void ReceiveUdp()
 
 				PGN_253[PGN_253_Size] = CK_A;
 
-                // UART bridge is already done above via Serial1.write(autoSteerUdpData, len),
-                // so we intentionally avoid sending PGN_253 again to prevent duplicate frames.
-
-
+        Serial1.write(PGN_253, sizeof(PGN_253));                                // 2. Отправляем PGN 253 в UART1 на ESP32
+        
 				//off to AOG
 				SendUdp(PGN_253, sizeof(PGN_253), Eth_ipDestination, portDestination);
 
