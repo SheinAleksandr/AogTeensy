@@ -132,8 +132,7 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 #include "zNMEAParser.h"
 #include <Wire.h>
 #include "BNO08x_AOG.h"
-#include <AlfredoCRSF.h>                                                                      //добавил библиотеку
-#define CRSF_BAUDRATE 420000                                                                  // Используйте значение, определенное в библиотеке
+#define CRSF_BAUDRATE 115200                                                                  // Скорость UART для связи с ESP32
 #include <FlexCAN_T4.h>
 // CRX2/CTX2 on Teensy are CAN2 on board
 // CRX3/CTX3 on Teensy are CAN1 on board
@@ -214,9 +213,9 @@ uint8_t aogSerialCmdCounter = 0;
 bool passThroughGPS = false;
 bool passThroughGPS2 = false;
 
-AlfredoCRSF crsf;                                                                           // обьявление переменной
-int channel1Value = 0;                                                                      // Переменная для хранения значения угла поворота колес
-int channel9Value = 0;                                                                      // Инициализация переменной включения руля
+int channel9Value = 0;                                                                      // Флаг FPV режима (>1500 = активен)
+float espAngleSetPoint = 0.0;                                                               // Угол от ESP32
+uint32_t lastESPAngleTime = 0;                                                              // Время последнего пакета от ESP32
 
 //-=-=-=-=- UBX binary specific variables
 struct ubxPacket
@@ -250,8 +249,7 @@ void setup()
   pinMode(AUTOSTEER_STANDBY_LED, OUTPUT);
   pinMode(AUTOSTEER_ACTIVE_LED, OUTPUT);
 
-  Serial1.begin(CRSF_BAUDRATE, SERIAL_8N1);                                                // Используем Serial1 115200 обмен машинного модуля 
-  crsf.begin(Serial1);                                                                     // Инициализация последовательного порта CRSF
+  Serial1.begin(CRSF_BAUDRATE, SERIAL_8N1);                                                // Serial1 — обмен с ESP32 (угол FPV + PGN 253)
 
   // the dash means wildcard
   parser.setErrorHandler(errorHandler);
@@ -684,9 +682,8 @@ void loop()
       readBNO();
     }
     
-    // Refresh CRSF channels before steering loop to avoid one-cycle stale values.
-    crsf.update();
-    channel9Value = crsf.getChannel(9);
+    // Читаем угол и флаг FPV от ESP32
+    readAngleFromESP32();
 
     if (Autosteer_running) autosteerLoop();
     else ReceiveUdp();

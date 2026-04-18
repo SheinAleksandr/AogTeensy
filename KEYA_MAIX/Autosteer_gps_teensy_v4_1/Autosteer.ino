@@ -329,30 +329,10 @@ void autosteerLoop()
 				previous = 0;
 			}
 		}
-                                                                                   // Получаем значение канала 1 (значение джойстика)
-     int remoteControlValue = crsf.getChannel(1);
-
-                                                                                   // Определяем диапазоны
-     int minJoystickValue = 1000;                                                  // Минимальное значение джойстика
-     int maxJoystickValue = 2000;                                                  // Максимальное значение джойстика
-     float minSteerAngle = -30.0;                                                  // Минимальный угол поворота
-     float maxSteerAngle = 30.0;                                                   // Максимальный угол поворота
-
-                                                                                   // Преобразование значения джойстика в угол поворота
-   
-   if (channel9Value > 1500) { // Проверка значения канала 9                                                                                
-     if (remoteControlValue < minJoystickValue) {
-           steerAngleSetPoint = minSteerAngle;                                     // Если значение меньше минимального, устанавливаем минимальный угол
-      } else if (remoteControlValue > maxJoystickValue) {
-           steerAngleSetPoint = maxSteerAngle;                                     // Если значение больше максимального, устанавливаем максимальный угол
-      } else if (remoteControlValue >= 1400 && remoteControlValue <= 1600) {
-           steerAngleSetPoint = 0.0;                                               // Если значение в диапазоне от 1400 до 1600, устанавливаем угол в 0
-      } else {
-                                                                                   // Линейная интерполяция с float без квантования в целые градусы
-           float t = (float)(remoteControlValue - minJoystickValue) / (float)(maxJoystickValue - minJoystickValue);
-           steerAngleSetPoint = minSteerAngle + t * (maxSteerAngle - minSteerAngle);
-    }
-   }                                        
+     // FPV режим: угол уже вычислен на ESP32 и получен через readAngleFromESP32()
+     if (channel9Value > 1500) {
+         steerAngleSetPoint = espAngleSetPoint;
+     }
 
 		if (steerConfig.ShaftEncoder && pulseCount >= steerConfig.PulseCountMax)
 		{
@@ -833,4 +813,37 @@ void EncoderFunc()
 		pulseCount++;
 		encEnable = false;
 	}
+}
+
+// Парсер пакетов угла от ESP32
+// Формат: [0x85][0x85][angleLow][angleHigh][flags][crc]
+// crc = angleLow ^ angleHigh ^ flags
+void readAngleFromESP32() {
+    static uint8_t state = 0;
+    static uint8_t buf[3]; // angleLow, angleHigh, flags
+
+    // Сброс FPV если нет пакетов 2 секунды
+    if (millis() - lastESPAngleTime > 2000 && channel9Value > 1500) {
+        channel9Value = 1000;
+    }
+
+    while (Serial1.available()) {
+        uint8_t b = Serial1.read();
+        switch (state) {
+            case 0: if (b == 0x85) state = 1; break;
+            case 1: state = (b == 0x85) ? 2 : 0; break;
+            case 2: buf[0] = b; state = 3; break;
+            case 3: buf[1] = b; state = 4; break;
+            case 4: buf[2] = b; state = 5; break;
+            case 5:
+                if (b == (uint8_t)(buf[0] ^ buf[1] ^ buf[2])) {
+                    int16_t angleRaw = (int16_t)((buf[1] << 8) | buf[0]);
+                    espAngleSetPoint = angleRaw * 0.01f;
+                    channel9Value = (buf[2] & 0x01) ? 2000 : 1000;
+                    lastESPAngleTime = millis();
+                }
+                state = 0;
+                break;
+        }
+    }
 }
