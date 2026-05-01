@@ -26,9 +26,6 @@
 // Serial 2 In RTCMB
 
 
-// lansalot's attempt at Keya integration
-// (he apologizes in advance)
-
 /************************* User Settings *************************/
 // Serial Ports
 #define SerialAOG Serial                //AgIO USB conection
@@ -57,8 +54,6 @@ uint32_t baudrates[]
 };
 
 const uint32_t nrBaudrates = sizeof(baudrates)/sizeof(baudrates[0]);
-
-int8_t KeyaCurrentSensorReading = 0;
 
 #define ImuWire Wire        //SCL=19:A5 SDA=18:A4
 #define RAD_TO_DEG_X_10 572.95779513082320876798154814105
@@ -133,11 +128,6 @@ byte velocityPWM_Pin = 36;      // Velocity (MPH speed) PWM pin
 #include <Wire.h>
 #include "BNO08x_AOG.h"
 #define CRSF_BAUDRATE 115200                                                                  // Скорость UART для связи с ESP32
-#include <FlexCAN_T4.h>
-// CRX2/CTX2 on Teensy are CAN2 on board
-// CRX3/CTX3 on Teensy are CAN1 on board
-// Seems to work for CAN2, not sure why it didn't for CAN1
-FlexCAN_T4<CAN3, RX_SIZE_256, TX_SIZE_256> Keya_Bus;
 
 //Used to set CPU speed
 extern "C" uint32_t set_arm_clock(uint32_t frequency); // required prototype
@@ -166,6 +156,7 @@ double headingcorr = 900;  //90deg heading correction (90deg*10)
 
 double baseline = 0;
 double rollDual = 0;
+double pitchDual = 0;
 double relPosD = 0;
 double heading = 0;
 
@@ -194,6 +185,7 @@ float pitch = 0;
 float yaw = 0;
 
 //Fusing BNO with Dual
+bool baseLineCheck = true; //Set to true to use IMU fusion with dual GPS
 double rollDelta;
 double rollDeltaSmooth;
 double correctionHeading;
@@ -216,6 +208,12 @@ bool passThroughGPS2 = false;
 int channel9Value = 0;                                                                      // Флаг FPV режима (>1500 = активен)
 float espAngleSetPoint = 0.0;                                                               // Угол от ESP32
 uint32_t lastESPAngleTime = 0;                                                              // Время последнего пакета от ESP32
+
+// Send data to AgIO via usb
+bool sendUSB = true;
+
+// UM982 Support (не используется, но нужно для совместимости zHandlers)
+bool useUM982 = false;
 
 //-=-=-=-=- UBX binary specific variables
 struct ubxPacket
@@ -358,15 +356,11 @@ void setup()
   Serial.print("useBNO08x = ");
   Serial.println(useBNO08x);
 
-  Serial.println("Right... time for some CANBUS! And, we're dedicated to Keya here");
-  CAN_Setup();
-
   Serial.println("\r\nEnd setup, waiting for GPS...\r\n");
 }
 
 void loop()
 {
-    KeyaBus_Receive();
     if (GGA_Available == false && !passThroughGPS && !passThroughGPS2)
     {
         if (systick_millis_count - PortSwapTime >= 10000)

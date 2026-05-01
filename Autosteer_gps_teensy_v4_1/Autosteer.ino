@@ -65,7 +65,6 @@ ADS1115_lite adc(ADS1115_DEFAULT_ADDRESS);     // Use this for the 16-bit versio
 uint8_t autoSteerUdpData[UDP_TX_PACKET_MAX_SIZE];  // Buffer For Receiving UDP Data
 #endif
 
-bool isKeya = true;
 //loop time variables in microseconds
 const uint16_t LOOP_TIME = 25;  //40Hz
 uint32_t autsteerLastTime = LOOP_TIME;
@@ -161,11 +160,9 @@ struct Setup {
 
 void steerConfigInit()
 {
-	if (!isKeya) {
-		if (steerConfig.CytronDriver)
-		{
-			pinMode(PWM2_RPWM, OUTPUT);
-		}
+	if (steerConfig.CytronDriver)
+	{
+		pinMode(PWM2_RPWM, OUTPUT);
 	}
 }
 
@@ -358,27 +355,16 @@ void autosteerLoop()
 		// Current sensor?
 		if (steerConfig.CurrentSensor)
 		{
-			if (isKeya) {
-				sensorReading = KeyaCurrentSensorReading;
-				if (KeyaCurrentSensorReading >= steerConfig.PulseCountMax) {
-					steerSwitch = 1; // reset values like it turned off
-					currentState = 1;
-					previous = 0;
-				}
-			}
-			else {
-				sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
-				sensorSample = (abs(775 - sensorSample)) * 0.5;
-				sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
-				sensorReading = min(sensorReading, 255);
+			sensorSample = (float)analogRead(CURRENT_SENSOR_PIN);
+			sensorSample = (abs(775 - sensorSample)) * 0.5;
+			sensorReading = sensorReading * 0.7 + sensorSample * 0.3;
+			sensorReading = min(sensorReading, 255);
 
-				if (sensorReading >= steerConfig.PulseCountMax)
-				{
-					steerSwitch = 1; // reset values like it turned off
-					currentState = 1;
-					previous = 0;
-				}
-
+			if (sensorReading >= steerConfig.PulseCountMax)
+			{
+				steerSwitch = 1; // reset values like it turned off
+				currentState = 1;
+				previous = 0;
 			}
 		}
 
@@ -438,21 +424,20 @@ void autosteerLoop()
 
 		if (watchdogTimer < WATCHDOG_THRESHOLD || channel9Value > 1500)
 		{
-			//Enable H Bridge for IBT2, hyd aux, etc for cytron. Don't care about this for Keya
-			if (!isKeya) {
-				if (steerConfig.CytronDriver)
+			//Enable H Bridge for IBT2, hyd aux, etc for cytron
+			if (steerConfig.CytronDriver)
+			{
+				if (steerConfig.IsRelayActiveHigh)
 				{
-					if (steerConfig.IsRelayActiveHigh)
-					{
-						digitalWrite(PWM2_RPWM, 0);
-					}
-					else
-					{
-						digitalWrite(PWM2_RPWM, 1);
-					}
+					digitalWrite(PWM2_RPWM, 0);
 				}
-				else digitalWrite(DIR1_RL_ENABLE, 1);
+				else
+				{
+					digitalWrite(PWM2_RPWM, 1);
+				}
 			}
+			else digitalWrite(DIR1_RL_ENABLE, 1);
+
 			steerAngleError = steerAngleActual - steerAngleSetPoint;   //calculate the steering error
 			//if (abs(steerAngleError)< steerSettings.lowPWM) steerAngleError = 0;
 
@@ -467,24 +452,20 @@ void autosteerLoop()
 		{
 			//we've lost the comm to AgOpenGPS, or just stop request
 			//Disable H Bridge for IBT2, hyd aux, etc for cytron
-			// Don't care about this for Keya
-			if (!isKeya) {
-				if (steerConfig.CytronDriver)
+			if (steerConfig.CytronDriver)
+			{
+				if (steerConfig.IsRelayActiveHigh)
 				{
-					if (steerConfig.IsRelayActiveHigh)
-					{
-						digitalWrite(PWM2_RPWM, 1);
-					}
-					else
-					{
-						digitalWrite(PWM2_RPWM, 0);
-					}
+					digitalWrite(PWM2_RPWM, 1);
 				}
-				else digitalWrite(DIR1_RL_ENABLE, 0); //IBT2
+				else
+				{
+					digitalWrite(PWM2_RPWM, 0);
+				}
 			}
+			else digitalWrite(DIR1_RL_ENABLE, 0); //IBT2
 
 			pwmDrive = 0; //turn off steering motor
-			if (isKeya) disableKeyaSteer(); // If we lost the connection to AOG, definitely disable steering
 			motorDrive(); //out to motors the pwm value
 			pulseCount = 0;
 			// Autosteer Led goes back to RED when autosteering is stopped
