@@ -13,8 +13,12 @@
 #define PWM_Frequency 0
 
 // IMU-WAS angle computed on Teensy from CAN yaw rate (zImuWasCan.ino)
-// AOG sends zero command: PGN254 bytes[11-12] = 0x7FFE
 #define USE_IMU_WAS_CAN 1
+
+// forward declarations (defined in zImuWasCan.ino)
+extern bool  imuWasCanValid;
+float GetImuWasAngleDeg();
+void  ImuWasZero();
 
 /////////////////////////////////////////////
 
