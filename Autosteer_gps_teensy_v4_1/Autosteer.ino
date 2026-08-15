@@ -12,9 +12,9 @@
 */
 #define PWM_Frequency 0
 
-// PGN 254 bytes [11]/[12] as IMU-WAS angle*100 (int16 low/high), instead of relay bytes.
-#define USE_IMU_WAS_FROM_PGN254 1
-#define IMU_WAS_FROM_PGN254_TIMEOUT_MS 1000
+// IMU-WAS angle computed on Teensy from CAN yaw rate (zImuWasCan.ino)
+// AOG sends zero command: PGN254 bytes[11-12] = 0x7FFE
+#define USE_IMU_WAS_CAN 1
 
 /////////////////////////////////////////////
 
@@ -106,9 +106,6 @@ float steerAngleActual = 0;
 float steerAngleSetPoint = 0; //the desired angle from AgOpen
 int16_t steeringPosition = 0; //from steering sensor
 float steerAngleError = 0; //setpoint - actual
-float imuWasFromPgn254Deg = 0;
-bool imuWasFromPgn254Valid = false;
-elapsedMillis imuWasFromPgn254Timer = 1000;
 
 //pwm variables
 int16_t pwmDrive = 0, pwmDisplay = 0;
@@ -384,14 +381,10 @@ void autosteerLoop()
     //Ackerman fix
     if (steerAngleActual < 0) steerAngleActual = (steerAngleActual * steerSettings.AckermanFix);
 
-#if USE_IMU_WAS_FROM_PGN254
-    if (imuWasFromPgn254Valid && imuWasFromPgn254Timer < IMU_WAS_FROM_PGN254_TIMEOUT_MS)
+#if USE_IMU_WAS_CAN
+    if (imuWasCanValid)
     {
-      steerAngleActual = imuWasFromPgn254Deg;
-    }
-    else if (imuWasFromPgn254Timer >= IMU_WAS_FROM_PGN254_TIMEOUT_MS)
-    {
-      imuWasFromPgn254Valid = false;
+      steerAngleActual = GetImuWasAngleDeg();
     }
 #endif
 
@@ -483,25 +476,11 @@ void ReceiveUdp()
                 //Bit 10 Tram
                 tram = autoSteerUdpData[10];
 
-#if USE_IMU_WAS_FROM_PGN254
-                int16_t imuWasX100 = (int16_t)(autoSteerUdpData[11] | (autoSteerUdpData[12] << 8));
-                if (imuWasX100 == (int16_t)0x7FFF)
-                {
-                  imuWasFromPgn254Valid = false;
-                }
-                else
-                {
-                  imuWasFromPgn254Deg = ((float)imuWasX100) * 0.01f;
-                  imuWasFromPgn254Valid = true;
-                  imuWasFromPgn254Timer = 0;
-                }
-#else
                 //Bit 11
                 relay = autoSteerUdpData[11];
 
                 //Bit 12
                 relayHi = autoSteerUdpData[12];
-#endif
 
                 //----------------------------------------------------------------------------
                 //Serial Send to agopenGPS
@@ -602,6 +581,11 @@ void ReceiveUdp()
 
                 // Re-Init steer settings
                 steerSettingsInit();
+
+#if USE_IMU_WAS_CAN
+                // Кнопка "Zero WAS" в AOG шлёт PGN252 — используем как команду обнуления
+                ImuWasZero();
+#endif
             }
 
             else if (autoSteerUdpData[3] == 0xFB)  //251 FB - SteerConfig

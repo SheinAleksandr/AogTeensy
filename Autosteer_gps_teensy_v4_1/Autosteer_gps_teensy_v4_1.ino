@@ -252,6 +252,9 @@ void setup()
 
   Serial.println("SerialAOG, SerialGPS initialized");
 
+  Serial.println("\r\nStarting IMU WAS CAN...");
+  ImuWasCan_Setup();
+
   Serial.println("\r\nStarting AutoSteer...");
   autosteerSetup();
   
@@ -647,6 +650,8 @@ void loop()
       readBNO();
     }
     
+    ImuWasCan_Loop();
+
     if (Autosteer_running) autosteerLoop();
     else ReceiveUdp();
     
