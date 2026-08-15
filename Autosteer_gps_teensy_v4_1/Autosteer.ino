@@ -107,6 +107,7 @@ float gpsSpeed = 0;
 
 //steering variables
 float steerAngleActual = 0;
+bool adsConnected = false;
 float steerAngleSetPoint = 0; //the desired angle from AgOpen
 int16_t steeringPosition = 0; //from steering sensor
 float steerAngleError = 0; //setpoint - actual
@@ -188,15 +189,20 @@ void autosteerSetup()
   Wire1.end();
   Wire1.begin();
     
-  // Check ADC 
+  // Check ADC
   if(adc.testConnection())
   {
     Serial.println("ADC Connecton OK");
+    adsConnected = true;
   }
   else
   {
+#if USE_IMU_WAS_CAN
+    Serial.println("ADC not found, using IMU WAS from CAN");
+#else
     Serial.println("ADC Connecton FAILED!");
     Autosteer_running = false;
+#endif
   }
 
   //50Khz I2C
@@ -348,38 +354,38 @@ void autosteerLoop()
     */
 
     //get steering position
-    if (steerConfig.SingleInputWAS)   //Single Input ADS
+    if (adsConnected)
     {
-      adc.setMux(ADS1115_REG_CONFIG_MUX_SINGLE_0);
-      steeringPosition = adc.getConversion();
-      adc.triggerConversion();//ADS1115 Single Mode
+      if (steerConfig.SingleInputWAS)   //Single Input ADS
+      {
+        adc.setMux(ADS1115_REG_CONFIG_MUX_SINGLE_0);
+        steeringPosition = adc.getConversion();
+        adc.triggerConversion();//ADS1115 Single Mode
 
-      steeringPosition = (steeringPosition >> 1); //bit shift by 2  0 to 13610 is 0 to 5v
-      helloSteerPosition = steeringPosition - 6800;
-    }
-    else    //ADS1115 Differential Mode
-    {
-      adc.setMux(ADS1115_REG_CONFIG_MUX_DIFF_0_1);
-      steeringPosition = adc.getConversion();
-      adc.triggerConversion();
+        steeringPosition = (steeringPosition >> 1); //bit shift by 2  0 to 13610 is 0 to 5v
+        helloSteerPosition = steeringPosition - 6800;
+      }
+      else    //ADS1115 Differential Mode
+      {
+        adc.setMux(ADS1115_REG_CONFIG_MUX_DIFF_0_1);
+        steeringPosition = adc.getConversion();
+        adc.triggerConversion();
 
-      steeringPosition = (steeringPosition >> 1); //bit shift by 2  0 to 13610 is 0 to 5v
-      helloSteerPosition = steeringPosition - 6800;
-    }
+        steeringPosition = (steeringPosition >> 1); //bit shift by 2  0 to 13610 is 0 to 5v
+        helloSteerPosition = steeringPosition - 6800;
+      }
 
-    //DETERMINE ACTUAL STEERING POSITION
-
-    //convert position to steer angle. 32 counts per degree of steer pot position in my case
-    //  ***** make sure that negative steer angle makes a left turn and positive value is a right turn *****
-    if (steerConfig.InvertWAS)
-    {
-      steeringPosition = (steeringPosition - 6805  - steerSettings.wasOffset);   // 1/2 of full scale
-      steerAngleActual = (float)(steeringPosition) / -steerSettings.steerSensorCounts;
-    }
-    else
-    {
-      steeringPosition = (steeringPosition - 6805  + steerSettings.wasOffset);   // 1/2 of full scale
-      steerAngleActual = (float)(steeringPosition) / steerSettings.steerSensorCounts;
+      //DETERMINE ACTUAL STEERING POSITION
+      if (steerConfig.InvertWAS)
+      {
+        steeringPosition = (steeringPosition - 6805  - steerSettings.wasOffset);
+        steerAngleActual = (float)(steeringPosition) / -steerSettings.steerSensorCounts;
+      }
+      else
+      {
+        steeringPosition = (steeringPosition - 6805  + steerSettings.wasOffset);
+        steerAngleActual = (float)(steeringPosition) / steerSettings.steerSensorCounts;
+      }
     }
 
     //Ackerman fix
