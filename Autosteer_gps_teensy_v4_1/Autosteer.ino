@@ -353,50 +353,50 @@ void autosteerLoop()
       #endif
     */
 
-    //get steering position
+#if USE_IMU_WAS_CAN
+    // CAN приоритет: если валиден — ADS не читаем
+    if (imuWasCanValid)
+    {
+      steerAngleActual = GetImuWasAngleDeg();
+    }
+    else
+#endif
+    // Fallback: ADS1115
     if (adsConnected)
     {
-      if (steerConfig.SingleInputWAS)   //Single Input ADS
+      if (steerConfig.SingleInputWAS)
       {
         adc.setMux(ADS1115_REG_CONFIG_MUX_SINGLE_0);
         steeringPosition = adc.getConversion();
-        adc.triggerConversion();//ADS1115 Single Mode
+        adc.triggerConversion();
 
-        steeringPosition = (steeringPosition >> 1); //bit shift by 2  0 to 13610 is 0 to 5v
+        steeringPosition = (steeringPosition >> 1);
         helloSteerPosition = steeringPosition - 6800;
       }
-      else    //ADS1115 Differential Mode
+      else
       {
         adc.setMux(ADS1115_REG_CONFIG_MUX_DIFF_0_1);
         steeringPosition = adc.getConversion();
         adc.triggerConversion();
 
-        steeringPosition = (steeringPosition >> 1); //bit shift by 2  0 to 13610 is 0 to 5v
+        steeringPosition = (steeringPosition >> 1);
         helloSteerPosition = steeringPosition - 6800;
       }
 
-      //DETERMINE ACTUAL STEERING POSITION
       if (steerConfig.InvertWAS)
       {
-        steeringPosition = (steeringPosition - 6805  - steerSettings.wasOffset);
+        steeringPosition = (steeringPosition - 6805 - steerSettings.wasOffset);
         steerAngleActual = (float)(steeringPosition) / -steerSettings.steerSensorCounts;
       }
       else
       {
-        steeringPosition = (steeringPosition - 6805  + steerSettings.wasOffset);
+        steeringPosition = (steeringPosition - 6805 + steerSettings.wasOffset);
         steerAngleActual = (float)(steeringPosition) / steerSettings.steerSensorCounts;
       }
-    }
 
-    //Ackerman fix
-    if (steerAngleActual < 0) steerAngleActual = (steerAngleActual * steerSettings.AckermanFix);
-
-#if USE_IMU_WAS_CAN
-    if (imuWasCanValid)
-    {
-      steerAngleActual = GetImuWasAngleDeg();
+      //Ackerman fix
+      if (steerAngleActual < 0) steerAngleActual = (steerAngleActual * steerSettings.AckermanFix);
     }
-#endif
 
 
                                                                                                           // Проверка состояния таймера наблюдения или значения канала 9
