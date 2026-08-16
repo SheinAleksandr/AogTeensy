@@ -592,10 +592,6 @@ void ReceiveUdp()
                 // Re-Init steer settings
                 steerSettingsInit();
 
-#if USE_IMU_WAS_CAN
-                // Кнопка "Zero WAS" в AOG шлёт PGN252 — используем как команду обнуления
-                ImuWasZero();
-#endif
             }
 
             else if (autoSteerUdpData[3] == 0xFB)  //251 FB - SteerConfig

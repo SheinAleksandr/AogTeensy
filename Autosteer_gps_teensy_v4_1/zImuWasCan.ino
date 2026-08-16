@@ -2,9 +2,8 @@
 // STM32 шлёт: ID=0x18FF51E5 extended, bytes[6-7] = yaw rate int16 x10 deg/s
 //
 // Обнуление:
-//   1. Автоматически при старте (AUTO_ZERO_MS после первого фрейма)
-//   2. Кнопка "Zero WAS" в AOG (перехватывается через PGN252 в Autosteer.ino)
-//   3. Автокоррекция в движении: едем прямо → угол медленно тянется к нулю
+//   - Автокоррекция в движении: едем прямо → угол медленно тянется к нулю
+//   - Вручную: кнопка Zero WAS в AOG (пока не реализовано без побочных эффектов)
 
 #include <FlexCAN_T4.h>
 
@@ -14,8 +13,6 @@ extern float gpsSpeed; // км/ч, из Autosteer.ino
 
 static const uint32_t IMU_WAS_CAN_ID           = 0x18FF51E5;
 static const uint32_t IMU_WAS_TIMEOUT_MS        = 200;    // нет фреймов → invalid
-static const uint32_t AUTO_ZERO_MS              = 3000;   // автообнуление через 3с после старта
-
 // Параметры автокоррекции в движении
 static const float    AZ_SPEED_MIN_KMH          = 1.0f;   // минимальная скорость
 static const float    AZ_YAW_RATE_MAX_DPS       = 0.8f;   // едем прямо если |yawRate| < этого
@@ -27,8 +24,6 @@ static float    imuWasAngleDeg  = 0.0f;
 static float    imuWasZeroDeg   = 0.0f;
 static float    imuWasYawRate   = 0.0f;   // последний yaw rate, для автокоррекции
 static uint32_t imuWasLastMs    = 0;
-static uint32_t imuWasFirstMs   = 0;
-static bool     autoZeroDone    = false;
 static uint32_t azStableMs      = 0;      // накопленное время "прямо"
 bool            imuWasCanValid  = false;
 
@@ -85,7 +80,6 @@ void ImuWasCan_Loop()
         imuWasYawRate = yawRate;
 
         uint32_t now = millis();
-        if (imuWasFirstMs == 0) imuWasFirstMs = now;
 
         if (imuWasLastMs != 0)
         {
@@ -109,12 +103,4 @@ void ImuWasCan_Loop()
         azStableMs = 0;
     }
 
-    // автообнуление при старте
-    if (!autoZeroDone && imuWasFirstMs != 0 &&
-        (uint32_t)(millis() - imuWasFirstMs) >= AUTO_ZERO_MS)
-    {
-        ImuWasZero();
-        autoZeroDone = true;
-        Serial.println("IMU WAS auto-zeroed at startup");
-    }
 }
