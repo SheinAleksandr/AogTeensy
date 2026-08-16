@@ -577,8 +577,9 @@ void ReceiveUdp()
 
                 steerSettings.steerSensorCounts = autoSteerUdpData[9]; //sent as setting displayed in AOG
 
-                steerSettings.wasOffset = (autoSteerUdpData[10]);  //read was zero offset Lo
+                int16_t prevWasOffset = steerSettings.wasOffset;
 
+                steerSettings.wasOffset = (autoSteerUdpData[10]);  //read was zero offset Lo
                 steerSettings.wasOffset |= (autoSteerUdpData[11] << 8);  //read was zero offset Hi
 
                 steerSettings.AckermanFix = (float)autoSteerUdpData[12] * 0.01;
@@ -591,6 +592,12 @@ void ReceiveUdp()
 
                 // Re-Init steer settings
                 steerSettingsInit();
+
+#if USE_IMU_WAS_CAN
+                // Zero WAS в AOG меняет wasOffset — используем это как триггер обнуления
+                if (steerSettings.wasOffset != prevWasOffset)
+                    ImuWasZero();
+#endif
 
             }
 
