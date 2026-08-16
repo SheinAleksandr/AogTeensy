@@ -357,7 +357,7 @@ void autosteerLoop()
     // CAN приоритет: если валиден — ADS не читаем
     if (imuWasCanValid)
     {
-      steerAngleActual = GetImuWasAngleDeg();
+      steerAngleActual = steerConfig.InvertWAS ? -GetImuWasAngleDeg() : GetImuWasAngleDeg();
     }
     else
 #endif
