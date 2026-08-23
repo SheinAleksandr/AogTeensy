@@ -34,6 +34,9 @@ void  ImuWasZero();
 //PWM1 for Cytron PWM, Left PWM for IBT2
 #define PWM1_LPWM  2
 
+//Not Connected for Cytron, Right PWM for IBT2
+#define PWM2_RPWM  3
+
 //--------------------------- Switch Input Pins ------------------------
 #define STEERSW_PIN 32
 #define WORKSW_PIN 34
@@ -183,6 +186,7 @@ void autosteerSetup()
   pinMode(WORKSW_PIN, INPUT_PULLUP);
   pinMode(STEERSW_PIN, INPUT_PULLUP);  
   pinMode(DIR1_RL_ENABLE, OUTPUT);
+  pinMode(PWM2_RPWM, OUTPUT);
 
 
   //set up communication
@@ -403,6 +407,14 @@ void autosteerLoop()
 
     if (watchdogTimer < WATCHDOG_THRESHOLD || channel9Value > 1500)
     {
+      // Enable relay / H-Bridge
+      if (steerConfig.CytronDriver)
+      {
+        if (steerConfig.IsRelayActiveHigh) digitalWrite(PWM2_RPWM, 0);
+        else                               digitalWrite(PWM2_RPWM, 1);
+      }
+      else digitalWrite(DIR1_RL_ENABLE, 1);
+
       steerAngleError = steerAngleActual - steerAngleSetPoint;   //calculate the steering error
       //if (abs(steerAngleError)< steerSettings.lowPWM) steerAngleError = 0;
 
@@ -415,6 +427,14 @@ void autosteerLoop()
     }
     else
     {
+      // Disable relay / H-Bridge
+      if (steerConfig.CytronDriver)
+      {
+        if (steerConfig.IsRelayActiveHigh) digitalWrite(PWM2_RPWM, 1);
+        else                               digitalWrite(PWM2_RPWM, 0);
+      }
+      else digitalWrite(DIR1_RL_ENABLE, 0);
+
       pwmDrive = 0; //turn off steering motor
       motorDrive(); //out to motors the pwm value
       pulseCount = 0;
