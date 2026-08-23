@@ -196,6 +196,20 @@ void readBNO()
             float t4 = +1.0 - 2.0 * (ysqr + dqz * dqz);
             yaw = atan2(t3, t4);
 
+            // Накопление изменения курса кузова для компенсации разворотов (IMU WAS)
+#if USE_IMU_WAS_CAN
+            {
+                static float _prevYawRad = 0.0f;
+                static bool  _init = false;
+                if (!_init) { _prevYawRad = yaw; _init = true; }
+                float _dy = yaw - _prevYawRad;
+                if (_dy >  3.14159f) _dy -= 6.28318f;
+                if (_dy < -3.14159f) _dy += 6.28318f;
+                vehicleYawIntegDeg += _dy * 57.2957795f;
+                _prevYawRad = yaw;
+            }
+#endif
+
             // Convert yaw to degrees x10
             correctionHeading = -yaw;
             yaw = (int16_t)((yaw * -RAD_TO_DEG_X_10));

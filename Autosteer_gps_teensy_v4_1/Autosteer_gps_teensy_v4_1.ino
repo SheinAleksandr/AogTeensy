@@ -156,6 +156,7 @@ uint32_t PortSwapTime = 0;
 float roll = 0;
 float pitch = 0;
 float yaw = 0;
+float vehicleYawIntegDeg = 0.0f; // накопленное изменение курса кузова (Teensy BNO) с момента обнуления, для компенсации разворотов
 
 //Fusing BNO with Dual
 bool baseLineCheck = true; //Set to true to use IMU fusion with daul GPS

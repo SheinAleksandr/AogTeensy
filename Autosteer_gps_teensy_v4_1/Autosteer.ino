@@ -414,13 +414,18 @@ void autosteerLoop()
       digitalWrite(AUTOSTEER_STANDBY_LED, 0);
     }
     else
-    {      
+    {
       pwmDrive = 0; //turn off steering motor
       motorDrive(); //out to motors the pwm value
       pulseCount = 0;
       // Autosteer Led goes back to RED when autosteering is stopped
       digitalWrite (AUTOSTEER_STANDBY_LED, 1);
       digitalWrite (AUTOSTEER_ACTIVE_LED, 0);
+#if USE_IMU_WAS_CAN
+      // При выключении автоуправления сбрасываем ноль IMU WAS
+      // чтобы после разворота угол начинался с нуля
+      ImuWasZero();
+#endif
     }
   } 
 } // end of main loop
