@@ -441,13 +441,8 @@ void autosteerLoop()
       // Autosteer Led goes back to RED when autosteering is stopped
       digitalWrite (AUTOSTEER_STANDBY_LED, 1);
       digitalWrite (AUTOSTEER_ACTIVE_LED, 0);
-#if USE_IMU_WAS_CAN
-      // При выключении автоуправления сбрасываем ноль IMU WAS
-      // чтобы после разворота угол начинался с нуля
-      ImuWasZero();
-#endif
     }
-  } 
+  }
 } // end of main loop
 
 int currentRoll = 0;

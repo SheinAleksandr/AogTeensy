@@ -26,7 +26,7 @@ static const float    AZ_BETA            = 0.05f;  // скорость корр�
 
 static float    imuWasAngleDeg  = 0.0f;  // накопленное изменение yaw рычага (Δsum)
 static float    imuWasZeroDeg   = 0.0f;  // imuWasAngleDeg при обнулении
-static float    imuWasYawRate   = 0.0f;  // скорость изменения yaw рычага (°/с), для автокоррекции
+static float    imuWasRelRate   = 0.0f;  // скорость компенсированного угла (рычаг − кузов), °/с
 static float    prevCanYawDeg   = 0.0f;  // предыдущий угол с CAN, для вычисления дельты
 static bool     prevCanYawInit  = false;
 static uint32_t imuWasLastMs    = 0;
@@ -58,7 +58,7 @@ static void updateAutoZero(uint32_t dtMs)
 {
     if (!imuWasCanValid) { azStableMs = 0; return; }
     if (gpsSpeed < AZ_SPEED_MIN_KMH) { azStableMs = 0; return; }
-    if (fabsf(imuWasYawRate) > AZ_YAW_RATE_MAX_DPS) { azStableMs = 0; return; }
+    if (fabsf(imuWasRelRate) > AZ_YAW_RATE_MAX_DPS) { azStableMs = 0; return; }
 
     azStableMs += dtMs;
     float angle = GetImuWasAngleDeg();
@@ -107,7 +107,11 @@ void ImuWasCan_Loop()
         if (dt > 0.0f && dt <= 0.2f)
         {
             imuWasAngleDeg += dYaw;
-            imuWasYawRate   = (dt > 0.001f) ? (dYaw / dt) : 0.0f;
+            // скорость компенсированного угла: рыскание трактора отменяется вычитанием кузова
+            float compAngle = GetImuWasAngleDeg();
+            static float prevCompAngle = 0.0f;
+            imuWasRelRate = (dt > 0.001f) ? ((compAngle - prevCompAngle) / dt) : 0.0f;
+            prevCompAngle = compAngle;
             updateAutoZero(dtMs);
         }
 
