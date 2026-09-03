@@ -23,7 +23,7 @@ static const float    AZ_SPEED_MIN_KMH    = 1.0f;   // минимальная с
 static const float    AZ_BODY_RATE_MAX_DPS = 0.8f;  // кузов не вращается → едем прямо
 static const float    AZ_ANGLE_MAX_DEG    = 5.0f;   // руль близко к нулю → едем прямо
 static const uint32_t AZ_STABLE_MS        = 280;    // мс стабильности до начала коррекции
-static const float    AZ_BETA             = 0.10f;  // скорость коррекции (10% за тик)
+static const float    AZ_BETA             = 0.05f;  // скорость коррекции (5% за тик)
 
 static float    imuWasAngleDeg  = 0.0f;  // накопленное изменение yaw рычага (Δsum)
 static float    imuWasZeroDeg   = 0.0f;  // imuWasAngleDeg при обнулении
