@@ -597,8 +597,12 @@ void ReceiveUdp()
 
                 steerSettings.steerSensorCounts = autoSteerUdpData[9]; //sent as setting displayed in AOG
 
+                int16_t prevWasOffset = steerSettings.wasOffset;
                 steerSettings.wasOffset = (autoSteerUdpData[10]);  //read was zero offset Lo
                 steerSettings.wasOffset |= (autoSteerUdpData[11] << 8);  //read was zero offset Hi
+#if USE_IMU_WAS_CAN
+                if (steerSettings.wasOffset != prevWasOffset) ImuWasZero();
+#endif
 
                 steerSettings.AckermanFix = (float)autoSteerUdpData[12] * 0.01;
 
