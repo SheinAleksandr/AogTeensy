@@ -19,14 +19,14 @@ static const uint32_t IMU_WAS_CAN_ID      = 0x18FF51E5;
 static const uint32_t IMU_WAS_TIMEOUT_MS  = 200;    // нет фреймов → invalid
 
 // Параметры автокоррекции в движении
-static const float    AZ_SPEED_MIN_KMH   = 1.0f;   // минимальная скорость
-static const float    AZ_YAW_RATE_MAX_DPS = 0.8f;  // едем прямо если |угловая скорость рычага| < этого
-static const uint32_t AZ_STABLE_MS       = 400;    // сколько мс должны быть прямо
-static const float    AZ_BETA            = 0.05f;  // скорость коррекции (5% за тик)
+static const float    AZ_SPEED_MIN_KMH    = 1.0f;   // минимальная скорость
+static const float    AZ_BODY_RATE_MAX_DPS = 0.8f;  // кузов не вращается → едем прямо
+static const float    AZ_ANGLE_MAX_DEG    = 5.0f;   // руль близко к нулю → едем прямо
+static const uint32_t AZ_STABLE_MS        = 280;    // мс стабильности до начала коррекции
+static const float    AZ_BETA             = 0.10f;  // скорость коррекции (10% за тик)
 
 static float    imuWasAngleDeg  = 0.0f;  // накопленное изменение yaw рычага (Δsum)
 static float    imuWasZeroDeg   = 0.0f;  // imuWasAngleDeg при обнулении
-static float    imuWasRelRate   = 0.0f;  // скорость компенсированного угла (рычаг − кузов), °/с
 static float    prevCanYawDeg   = 0.0f;  // предыдущий угол с CAN, для вычисления дельты
 static bool     prevCanYawInit  = false;
 static uint32_t imuWasLastMs    = 0;
@@ -58,13 +58,23 @@ static void updateAutoZero(uint32_t dtMs)
 {
     if (!imuWasCanValid) { azStableMs = 0; return; }
     if (gpsSpeed < AZ_SPEED_MIN_KMH) { azStableMs = 0; return; }
-    if (fabsf(imuWasRelRate) > AZ_YAW_RATE_MAX_DPS) { azStableMs = 0; return; }
+
+    // Скорость вращения КУЗОВА (Teensy BNO):
+    // при автостиринге руль движется, но кузов идёт прямо → bodyRate ≈ 0
+    static float prevVehicleYaw = 0.0f;
+    float dt = dtMs * 0.001f;
+    float bodyRate = (dt > 0.001f) ? fabsf((vehicleYawIntegDeg - prevVehicleYaw) / dt) : 0.0f;
+    prevVehicleYaw = vehicleYawIntegDeg;
+
+    if (bodyRate > AZ_BODY_RATE_MAX_DPS) { azStableMs = 0; return; }
+
+    // Угол руля должен быть небольшим — иначе реальный поворот
+    if (fabsf(GetImuWasAngleDeg()) > AZ_ANGLE_MAX_DEG) { azStableMs = 0; return; }
 
     azStableMs += dtMs;
-    float angle = GetImuWasAngleDeg();
     if (azStableMs >= AZ_STABLE_MS)
     {
-        imuWasZeroDeg += AZ_BETA * angle;
+        imuWasZeroDeg += AZ_BETA * GetImuWasAngleDeg();
     }
 }
 
@@ -107,11 +117,6 @@ void ImuWasCan_Loop()
         if (dt > 0.0f && dt <= 0.2f)
         {
             imuWasAngleDeg += dYaw;
-            // скорость компенсированного угла: рыскание трактора отменяется вычитанием кузова
-            float compAngle = GetImuWasAngleDeg();
-            static float prevCompAngle = 0.0f;
-            imuWasRelRate = (dt > 0.001f) ? ((compAngle - prevCompAngle) / dt) : 0.0f;
-            prevCompAngle = compAngle;
             updateAutoZero(dtMs);
         }
 
